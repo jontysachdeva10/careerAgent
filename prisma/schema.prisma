@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String?   @unique
+  createdAt DateTime  @default(now())
+  profile   Profile?
+  messages  Message[]
+
+  @@index([email])
+}
+
+model Profile {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  currentRole     String? // "Frontend", "Teacher"
+  targetRole      String? // "Full stack", "Product Manager"
+  experienceYears Float? // 6.5
+  skills          String[] // Any domain
+  interests       String[] // Career interests
+  goals           String?
+  education       String?
+  industry        String? // "Tech", "Finance", "Healthcare"
+  location        String?
+
+  updatedAt DateTime @updatedAt
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  role      String // 'user' | 'assistant'
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  deleted   Boolean  @default(false)
+
+  @@index([userId])
+}
