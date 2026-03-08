@@ -1,13 +1,9 @@
-import { Response } from "express";
-import processChat from "../services/chat.service";
-import { AuthRequest } from "../middleware/auth";
+import { Router } from "express";
+import { chat, chatStream } from "../controllers/chat.controller";
 
-async function chat(req: AuthRequest, res: Response) {
-  const userId = req.user!.userId;
-  const { message } = req.body;
+const router = Router();
 
-  const reply = await processChat(userId, message);
-  res.json({ reply });
-}
+router.post('/', chat);
+router.post('/stream', chatStream);
 
-export default chat;
+export default router;

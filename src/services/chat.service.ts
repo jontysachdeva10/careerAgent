@@ -34,7 +34,16 @@ const SYSTEM_PROMPT = `
   Be practical, structured, and realistic.
 `;
 
-async function processChat(userId: string, userMessage: string) {
+type ChatOptions = {
+  onToken?: (token: string) => void;
+  signal?: AbortSignal;
+};
+
+export async function processChat(
+  userId: string,
+  userMessage: string,
+  options?: ChatOptions,
+) {
   // 1. Ensure user exists
   await prisma.user.upsert({
     where: { id: userId },
@@ -90,7 +99,11 @@ async function processChat(userId: string, userMessage: string) {
   ];
 
   // 6. Call Groq
-  const reply = await callGroq(messages, { temperature: 0.7 });
+  const reply = await callGroq(messages, {
+    temperature: 0.7,
+    onToken: options?.onToken,
+    signal: options?.signal,
+  });
 
   // 7. Save assistant reply
   if (reply) {
@@ -111,9 +124,22 @@ async function processChat(userId: string, userMessage: string) {
     .join("\n");
 
   // 9. Extract profile
-  const extracted = await extractProfile(conversationText);
+  void runProfileExtraction(userId, conversationText);
 
-  if (extracted) {
+  return reply;
+}
+
+async function runProfileExtraction(userId: string, conversationText: string) {
+  try {
+    const extracted = await extractProfile(conversationText);
+
+    if (!extracted) return;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { profile: true },
+    });
+
     await prisma.profile.upsert({
       where: { userId },
       update: mergeProfile(user?.profile ?? {}, extracted),
@@ -122,9 +148,7 @@ async function processChat(userId: string, userMessage: string) {
         ...extracted,
       },
     });
+  } catch (err) {
+    console.error("Profile extraction failed:", err);
   }
-
-  return reply;
 }
-
-export default processChat;

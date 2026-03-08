@@ -1,30 +1,54 @@
 import Groq from "groq-sdk";
 import { AIMessage } from "../types/ai";
 
+type Options = {
+  temperature?: number;
+  max_tokens?: number;
+  onToken?: (token: string) => void;
+  signal?: AbortSignal;
+};
+
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-async function callGroq(messages: AIMessage[], options?: { temperature?: number; max_tokens?: number; }) {
+async function callGroq(messages: AIMessage[], options?: Options) {
   try {
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages,
-      temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.max_tokens ?? 512,
-    });
+    const response = await groq.chat.completions.create(
+      {
+        model: "llama-3.3-70b-versatile",
+        messages,
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.max_tokens ?? 512,
+        stream: true,
+      },
+      {
+        signal: options?.signal,
+      },
+    );
 
-    const content = response.choices?.[0]?.message?.content;
+    let fullContent = "";
 
-    if(!content || content.trim() === "") {
-      throw new Error("Groq returned empty content");  
+    for await (const chunk of response) {
+      const content = chunk.choices?.[0]?.delta?.content || "";
+
+      if (!content) continue;
+
+      fullContent += content;
+
+      if (options?.onToken) {
+        options.onToken(content);
+      }
     }
 
-    return content
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-;
+    if (fullContent.trim() === "") {
+      throw new Error("Groq returned empty content");
+    }
+
+    return fullContent
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
   } catch (error) {
     console.error("Groq error:", error);
     throw error;

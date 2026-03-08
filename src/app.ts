@@ -9,6 +9,6 @@ export const app: Application = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/chat', requireAuth, chatRoutes);
+app.use('/chat', requireAuth, chatRoutes);
 app.use('/auth', authRoutes);
 app.use('/delete', deleteRoutes);
